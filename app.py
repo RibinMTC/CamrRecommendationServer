@@ -1,6 +1,5 @@
 # import main Flask class and request object
 from flask import Flask, request, jsonify
-from waitress import serve
 
 # create the Flask app
 from src.Item_Similarity_Recommender import  ItemSimilarityRecommender
