@@ -62,7 +62,7 @@ if __name__ == '__main__':
 
     itemSimilarityRecommender = ItemSimilarityRecommender()
     #get_similar_items_test("Rheinfelder Bierhalle")
-    #app.run(port=5000, host='0.0.0.0')
-    serve(app, host='0.0.0.0', port=5000, threads=1)
+    app.run(port=5000, host='0.0.0.0')
+    #serve(app, host='0.0.0.0', port=5000, threads=1)
     #test = context_mf(1)
     #print(test)
