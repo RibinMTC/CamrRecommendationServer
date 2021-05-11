@@ -74,16 +74,9 @@ def get_similar_items_test(poi_name):
     print(test)
 
 
+itemSimilarityRecommender = ItemSimilarityRecommender()
+userContextRecommender = UserContextRecommender(len(userattributescodes))
 if __name__ == '__main__':
-    # run app in debug mode on port 5000
-
-    itemSimilarityRecommender = ItemSimilarityRecommender()
-    userContextRecommender = UserContextRecommender(len(userattributescodes))
-    # recommended_pois = userContextRecommender.context_mf(1)
-    # print(recommended_pois)
-    # recommended_pois = userContextRecommender.context_mf(1)
-    # print(recommended_pois)
     # get_similar_items_test("Rheinfelder Bierhalle")
     app.run(port=5000, host='0.0.0.0')
     # serve(app, host='0.0.0.0', port=5000, threads=1)
-
