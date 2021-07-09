@@ -329,3 +329,4 @@ fabric.properties
 
 
 # End of https://www.toptal.com/developers/gitignore/api/python,pycharm,flask
+/aws_credentials.json

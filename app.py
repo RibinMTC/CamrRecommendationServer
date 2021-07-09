@@ -2,8 +2,8 @@
 from flask import Flask, request, jsonify
 
 # create the Flask app
-from src.Item_Similarity_Recommender import ItemSimilarityRecommender
-from src.Restaurant_Recommender import get_popular_items
+from src.item_similarity_recommendation import ItemSimilarityRecommender
+from src.popular_restaurants_recommendation import get_popular_items
 from src.usercontext_database_creator import userattributescodes
 from src.usercontext_recommendation import UserContextRecommender
 
