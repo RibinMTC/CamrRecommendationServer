@@ -1,6 +1,6 @@
 import json
 import pathlib
-
+from scipy import sparse
 import boto3
 
 
@@ -44,6 +44,13 @@ if __name__ == '__main__':
     pois = aws.load_all_pois()
 
     user_prefs = aws.load_all_user_prefs()
+
+    vals, cols, rows = zip(*user_prefs.values())
+
+    #rating_matrix = sparse.csr_matrix((user_prefs['UserPreference'].values.astype(float),(user_prefs['UserId'].values,user_prefs['PoiId'].values)))
+    #rating_matrix =sparse.csr_matrix((vals['UserPreference'].astype(float), (rows['UserId'].astype(int), cols['PoiId'].astype(int))))
+
+    print("It is done")
 
     # Uncomment code below to iterate through all pois and its attributes
 

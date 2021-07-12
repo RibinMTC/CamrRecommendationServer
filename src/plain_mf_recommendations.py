@@ -46,6 +46,7 @@ class AwsManager:
 
 
 def load_data():
+
     rating_matrix = scipy.sparse.load_npz(dir / 'ratingdatabase.npz')
     with open(dir / 'profiles.json', 'r') as read_file:
         uprofile = json.loads(read_file.read())
@@ -67,7 +68,7 @@ def load_data():
     return uprofile, rating_matrix
 
 
-class UserContextRecommender:
+class PlainUserRecommender:
 
     def __init__(self, user_attribute_codes_len):
         self.user_attribute_codes_len = user_attribute_codes_len
@@ -87,7 +88,7 @@ class UserContextRecommender:
         self.userfactors = np.random.random_sample((num_users, self.factors)).astype(
             'float32')  # Return random floats in the half-open interval [0.0, 1.0).
         self.itemfactors = np.random.random_sample((num_items, self.factors)).astype('float32')
-        self.userattributefactors = np.random.random_sample((num_attributes, self.factors)).astype('float32')
+        #self.userattributefactors = np.random.random_sample((num_attributes, self.factors)).astype('float32')
 
         self.ibias = np.zeros(num_items)
         self.ubias = np.zeros(num_users)
@@ -99,13 +100,13 @@ class UserContextRecommender:
 
             for u, i, value in zip(cx.row, cx.col, cx.data):
 
-                uattributes = np.zeros(self.factors)
-                attributes = self.Userattributes[str(u)]
+                #uattributes = np.zeros(self.factors)
+                #attributes = self.Userattributes[str(u)]
 
-                for aid in attributes:
-                    uattributes += self.userattributefactors[aid, :]
+                #for aid in attributes:
+                    #uattributes += self.userattributefactors[aid, :]
 
-                predict = self.ubias[u] + self.ibias[i] + np.dot((self.userfactors[u, :] + uattributes[:]),
+                predict = self.ubias[u] + self.ibias[i] + np.dot((self.userfactors[u, :]),
                                                                  self.itemfactors[i, :])
 
                 err = (value - predict)
@@ -119,64 +120,22 @@ class UserContextRecommender:
                 d = (err * self.itemfactors[i, :] - self.reg * uf)
                 self.userfactors[u, :] += self.lr * d
 
-                d = (err * (self.userfactors[u, :] + uattributes[:]) - self.reg * itf)
+                d = (err * (self.userfactors[u, :]) - self.reg * itf)
                 self.itemfactors[i, :] += self.lr * d
-
-                for aid in attributes:
-                    d = (err * (itf) - self.reg * self.userattributefactors[aid, :])
-                    self.userattributefactors[aid, :] += self.lr * d
-
-    def additional_preference_training(self, new_preferences):
-
-        for iter in range(self.iterations):
-
-            for user_pref in new_preferences:
-                u =  int(user_pref['UserId'])
-                i = int(user_pref['PoiId'])
-                value =  int(user_pref['UserPreference'])
-
-            #for u, i, value in zip(new_preferences[0], new_preferences[1], new_preferences[2]):
-
-                uattributes = np.zeros(self.factors)
-                attributes = self.Userattributes[str(u)]
-
-                for aid in attributes:
-                    uattributes += self.userattributefactors[aid, :]
-
-                predict = self.ubias[u] + self.ibias[i] + np.dot((self.userfactors[u, :] + uattributes[:]),
-                                                                 self.itemfactors[i, :])
-
-                err = (value - predict)
-
-                self.ubias[u] += 5 * self.lr * (err - self.reg * self.ubias[u])
-                self.ibias[i] += 5 * self.lr * (err - self.reg * self.ibias[i])
-
-                uf = self.userfactors[u, :]
-                itf = self.itemfactors[i, :]
-
-                d = (err * self.itemfactors[i, :] - self.reg * uf)
-                self.userfactors[u, :] += 5 * self.lr * d
-
-                d = (err * (self.userfactors[u, :] + uattributes[:]) - self.reg * itf)
-                self.itemfactors[i, :] += 5 * self.lr * d
-
-                for aid in attributes:
-                    d = (err * (itf) - self.reg * self.userattributefactors[aid, :])
-                    self.userattributefactors[aid, :] += 5 * self.lr * d
 
 
 
     def context_mf(self, user_id):
         # predict user items
 
-        uattributes = np.zeros(self.factors)
-        attributes = self.Userattributes[str(user_id)]
+        #uattributes = np.zeros(self.factors)
+        #attributes = self.Userattributes[str(user_id)]
 
-        for aid in attributes:
-            uattributes += self.userattributefactors[aid, :]
+        #for aid in attributes:
+            #uattributes += self.userattributefactors[aid, :]
 
         predict = np.reshape(self.ubias[user_id] + self.ibias +
-                             np.sum(np.multiply(self.userfactors[user_id, :] + uattributes[:], self.itemfactors[:, :]),
+                             np.sum(np.multiply(self.userfactors[user_id, :], self.itemfactors[:, :]),
                                     axis=1,
                                     dtype=np.float32), (-1,))
 
