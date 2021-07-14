@@ -4,6 +4,7 @@ from flask import Flask, request, jsonify
 # create the Flask app
 from src.item_similarity_recommendation import ItemSimilarityRecommender
 from src.popular_restaurants_recommendation import get_popular_items
+from src.user_context_recommendation_new import PlainUserRecommender
 from src.usercontext_database_creator import userattributescodes
 from src.usercontext_recommendation import UserContextRecommender
 
@@ -65,6 +66,23 @@ def user_context_recommendation_query():
         return recommendation
 
 
+@app.route('/user-plain-recommendation-query', methods=['GET', 'POST'])
+def user_plain_recommendation_query():
+    recommendation = {"poiNames": []}
+    try:
+        request_data = request.get_json()
+
+        user_id = int(request_data['userId'])
+        recommended_pois = plainUserRecommender.context_mf(user_id)
+        recommendation["poiNames"] = recommended_pois
+
+        return jsonify(recommendation)
+
+    except Exception as e:
+        print(e)
+        return recommendation
+
+
 def get_similar_items_test(poi_name):
     # test = get_popular_items( ["Bierhalle Wolf", "Rheinfelder Bierhalle", "Chop-Stick Restaurant", "Walliser Keller
     # \"The SwissRestaurant\""]) print(test)
@@ -76,6 +94,8 @@ def get_similar_items_test(poi_name):
 
 itemSimilarityRecommender = ItemSimilarityRecommender()
 userContextRecommender = UserContextRecommender(len(userattributescodes))
+plainUserRecommender = PlainUserRecommender(len(userattributescodes))
+
 if __name__ == '__main__':
     # get_similar_items_test("Rheinfelder Bierhalle")
     app.run(port=5000, host='0.0.0.0')
