@@ -8,6 +8,7 @@ import bottleneck as bn
 from scipy import sparse
 
 from src.aws_manager import AwsManager
+import traceback
 
 dir = pathlib.Path(__file__).parent.parent.absolute() / 'poiData'
 
@@ -26,7 +27,7 @@ class PlainUserRecommender:
         pois_db = self.aws_manager.load_all_pois()
         self.restaurant_poi_id_to_name_map = {}
         for poi in pois_db:
-            self.restaurant_poi_id_to_name_map[int(poi['PoiId'])] = poi['Name']
+            self.restaurant_poi_id_to_name_map[int(poi['PoiId']) - 1] = poi['Name']
 
         self.init_predictor()
 
@@ -40,8 +41,8 @@ class PlainUserRecommender:
         users = []
         pois = []
         for user_pref in user_prefs:
-            users.append(int(user_pref['UserId']))
-            pois.append(int(user_pref['PoiId']))
+            users.append(int(user_pref['UserId']) - 1)
+            pois.append(int(user_pref['PoiId']) - 1)
             ratings.append(int(float(user_pref['UserPreference'])))
 
         rating_matrix = sparse.csr_matrix((ratings, (users, pois)))
@@ -110,11 +111,11 @@ class PlainUserRecommender:
             recommended_poi_indices = idx[0:5]
 
             for index in recommended_poi_indices:
-                recommended_poi_names.append(self.restaurant_poi_id_to_name_map[index + 1])
+                recommended_poi_names.append(self.restaurant_poi_id_to_name_map[index])
 
             return recommended_poi_names
-        except Exception as e:
-            print(e)
+        except:
+            traceback.print_exc()
             return recommended_poi_names
 
 # class UserNoContextRecommender:
