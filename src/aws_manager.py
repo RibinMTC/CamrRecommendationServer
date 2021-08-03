@@ -32,8 +32,11 @@ class AwsManager:
     def load_all_pois(self):
         return self.scan_table('camr-poi-storage')
 
-    def load_all_user_prefs(self):
+    def load_all_google_user_prefs(self):
         return self.scan_table('camr-user-item-preferences')
+
+    def load_all_real_user_prefs(self):
+        return self.scan_table('camr-real-user-item-preferences')
 
 
 if __name__ == '__main__':
@@ -43,7 +46,7 @@ if __name__ == '__main__':
 
     pois = aws.load_all_pois()
 
-    user_prefs = aws.load_all_user_prefs()
+    user_prefs = aws.load_all_google_user_prefs()
 
     # Uncomment code below to iterate through all pois and its attributes
 

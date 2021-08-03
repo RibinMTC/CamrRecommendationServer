@@ -32,31 +32,34 @@ class PlainUserRecommender:
         self.init_predictor()
 
     def load_data(self):
-        with open(dir / 'profiles.json', 'r') as read_file:
-            uprofile = json.loads(read_file.read())
 
-        user_prefs = self.aws_manager.load_all_user_prefs()
+        google_user_prefs = self.aws_manager.load_all_google_user_prefs()
+        real_user_prefs = self.aws_manager.load_all_real_user_prefs()
 
         ratings = []
         users = []
         pois = []
-        for user_pref in user_prefs:
+        for user_pref in google_user_prefs:
             users.append(int(user_pref['UserId']) - 1)
+            pois.append(int(user_pref['PoiId']) - 1)
+            ratings.append(int(float(user_pref['UserPreference'])))
+
+        self.max_google_user_id = max(users)
+        for user_pref in real_user_prefs:
+            users.append(self.max_google_user_id + int(user_pref['UserId']))
             pois.append(int(user_pref['PoiId']) - 1)
             ratings.append(int(float(user_pref['UserPreference'])))
 
         rating_matrix = sparse.csr_matrix((ratings, (users, pois)))
 
-        return uprofile, rating_matrix
+        return rating_matrix
 
     def init_predictor(self):
-        self.Userattributes, self.ratingdata = self.load_data()
+        self.ratingdata = self.load_data()
         num_users, num_items = self.ratingdata.shape
-        num_attributes = self.user_attribute_codes_len
         self.userfactors = np.random.random_sample((num_users, self.factors)).astype(
             'float32')  # Return random floats in the half-open interval [0.0, 1.0).
         self.itemfactors = np.random.random_sample((num_items, self.factors)).astype('float32')
-        # self.userattributefactors = np.random.random_sample((num_attributes, self.factors)).astype('float32')
 
         self.ibias = np.zeros(num_items)
         self.ubias = np.zeros(num_users)
@@ -90,7 +93,7 @@ class PlainUserRecommender:
                 d = (err * (self.userfactors[u, :]) - self.reg * itf)
                 self.itemfactors[i, :] += self.lr * d
 
-    def context_mf(self, user_id):
+    def context_mf(self, user_id, poi_start_id=0, poi_end_id=-1):
         # predict user items
         recommended_poi_names = []
         try:
@@ -100,7 +103,7 @@ class PlainUserRecommender:
 
             # for aid in attributes:
             # uattributes += self.userattributefactors[aid, :]
-            user_id -= 1
+            user_id += self.max_google_user_id
             predict = np.reshape(self.ubias[user_id] + self.ibias +
                                  np.sum(np.multiply(self.userfactors[user_id, :], self.itemfactors[:, :]),
                                         axis=1,
@@ -108,7 +111,10 @@ class PlainUserRecommender:
 
             idx = bn.argpartition(-predict, 10)
 
-            recommended_poi_indices = idx[0:5]
+            if poi_end_id == -1:
+                poi_end_id = len(idx)
+            idx_in_range = idx[(idx >= poi_start_id) * (idx < poi_end_id)]
+            recommended_poi_indices = idx_in_range[0:5]
 
             for index in recommended_poi_indices:
                 recommended_poi_names.append(self.restaurant_poi_id_to_name_map[index])
