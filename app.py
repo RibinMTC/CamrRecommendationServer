@@ -4,9 +4,9 @@ from flask import Flask, request, jsonify
 # create the Flask app
 from src.item_similarity_recommendation import ItemSimilarityRecommender
 from src.popular_restaurants_recommendation import get_popular_items
-from src.user_context_recommendation_new import PlainUserRecommender
+from src.user_context_based_recommendation import UserContextBasedRecommender
+from src.user_plain_recommendation import PlainUserRecommender
 from src.usercontext_database_creator import userattributescodes
-from src.usercontext_recommendation import UserContextRecommender
 
 app = Flask(__name__)
 
@@ -65,7 +65,18 @@ def user_context_recommendation_query():
         request_data = request.get_json()
 
         user_id = int(request_data['userId'])
-        recommended_pois = userContextRecommender.context_mf(user_id)
+
+        phase = int(request_data['phase'])
+        if phase == 1:
+            usercontextBasedRecommender.additional_preference_training(user_id)
+            recommended_pois = usercontextBasedRecommender.context_mf(user_id, poi_end_id=phase_separating_poi_id)
+        elif phase == 2:
+            usercontextBasedRecommender.additional_preference_training(user_id)
+            recommended_pois = usercontextBasedRecommender.context_mf(user_id, poi_start_id=phase_separating_poi_id)
+        else:
+            print("Phase not recognized. Aborting Recommendation")
+            return jsonify(recommendation)
+
         recommendation["poiNames"] = recommended_pois
 
         return jsonify(recommendation)
@@ -111,8 +122,14 @@ def get_similar_items_test(poi_name, poi_start=0, poi_end=-1):
 phase_separating_poi_id = 25
 
 itemSimilarityRecommender = ItemSimilarityRecommender()
-userContextRecommender = UserContextRecommender(len(userattributescodes))
-plainUserRecommender = PlainUserRecommender(len(userattributescodes))
+plainUserRecommender = PlainUserRecommender()
+usercontextBasedRecommender = UserContextBasedRecommender(len(userattributescodes))
+# usercontextBasedRecommender.additional_preference_training(1)
+# recommended_pois = usercontextBasedRecommender.context_mf(1)
+# print(recommended_pois)
+# usercontextBasedRecommender.additional_preference_training(1)
+# recommended_pois = usercontextBasedRecommender.context_mf(1)
+# print(recommended_pois)
 # recommended_pois = plainUserRecommender.context_mf(4, poi_start_id=25)
 
 if __name__ == '__main__':
