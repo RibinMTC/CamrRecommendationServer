@@ -1,63 +1,38 @@
-import json
+import copy
 import pathlib
 
-import pandas as pd
 import numpy as np
 from pandas.core.nanops import bn
 from scipy import sparse
 
 from src.aws_manager import AwsManager
+from src.usercontext_database_creator import userattributescodes
 
 dir = pathlib.Path(__file__).parent.parent.absolute() / 'poiData'
 
 
-class UserContextBasedRecommender:
+class TrainingData:
 
-    def __init__(self, user_attribute_codes_len):
+    def __init__(self, num_users, num_items, factors, num_attributes):
+        self.userfactors = np.random.random_sample((num_users, factors)).astype(
+            'float32')
+        self.itemfactors = np.random.random_sample((num_items, factors)).astype('float32')
+        self.userattributefactors = np.random.random_sample((num_attributes, factors)).astype('float32')
+
+        self.ibias = np.zeros(num_items)
+        self.ubias = np.zeros(num_users)
+
+
+class UserAttributesLoader:
+
+    def __init__(self):
         self.aws_manager = AwsManager()
-        self.user_attribute_codes_len = user_attribute_codes_len
-        self.factors = 50
-        self.lr = 0.001
-        self.reg = 0.1
-        self.iterations = 50
-        self.Userattributes, self.ratingdata = self.load_data()
-        self.itemfactors = None
-        self.userattributefactors = None
-        pois_db = self.aws_manager.load_all_pois()
-        self.restaurant_poi_id_to_name_map = {}
-        self.old_user_likes = None
-        for poi in pois_db:
-            self.restaurant_poi_id_to_name_map[int(poi['PoiId']) - 1] = poi['Name']
-        self.init_predictor()
 
-    def load_data(self):
-
-        google_user_prefs = self.aws_manager.load_all_google_user_prefs()
-        real_user_prefs = self.aws_manager.load_all_real_user_prefs()
-        ratings = []
-        users = []
-        pois = []
-        for user_pref in google_user_prefs:
-            users.append(int(user_pref['UserId']) - 1)
-            pois.append(int(user_pref['PoiId']) - 1)
-            ratings.append(int(float(user_pref['UserPreference'])))
-
-        self.max_google_user_id = max(users)
-        for user_pref in real_user_prefs:
-            users.append(self.max_google_user_id + int(user_pref['UserId']))
-            pois.append(int(user_pref['PoiId']) - 1)
-            ratings.append(int(float(user_pref['UserPreference'])))
-
-        rating_matrix = sparse.csr_matrix((ratings, (users, pois)))
-
-        user_attributes = self.get_real_user_attributes()
-        return user_attributes, rating_matrix
-
-    def get_real_user_attributes(self):
+    def get_real_user_attributes(self, user_id_offset):
         user_attributes = {}
         users = self.aws_manager.load_all_users()
         for user in users:
-            user_id = int(user['UserId'])
+            user_id = user_id_offset + int(user['UserId'])
             attribute_num = []
             age = int(user['Age'])
             attribute_num.append(self.age_to_attribute_num_mapper(age))
@@ -81,7 +56,7 @@ class UserContextBasedRecommender:
             offset += 5
             attribute_num.append(self.personality_trait_to_attribute_num_mapper(openness) + offset)
 
-            user_attributes[self.max_google_user_id + user_id] = attribute_num
+            user_attributes[user_id] = attribute_num
 
         return user_attributes
 
@@ -121,68 +96,87 @@ class UserContextBasedRecommender:
         else:
             return 5
 
+
+class UserContextBasedRecommender:
+
+    def __init__(self):
+        self.aws_manager = AwsManager()
+        self.factors = 50
+        self.lr = 0.001
+        self.reg = 0.1
+        self.iterations = 50
+        self.Userattributes, self.ratingdata = self.load_data()
+        pois_db = self.aws_manager.load_all_pois()
+        self.restaurant_poi_id_to_name_map = {}
+        self.old_user_likes = None
+        self.old_training_data = None
+        for poi in pois_db:
+            self.restaurant_poi_id_to_name_map[int(poi['PoiId']) - 1] = poi['Name']
+        self.user_attribute_codes_len = len(userattributescodes)
+        self.not_placed_pois = [36, 39]  # delish not placed. Enzian-vegane bäckerei does not exist.
+        self.old_user_id = -1
+        self.initial_training_data = None
+        self.init_predictor()
+
+    def load_data(self):
+
+        google_user_prefs = self.aws_manager.load_all_google_user_prefs()
+        real_user_prefs = self.aws_manager.load_all_real_user_prefs()
+        ratings = []
+        users = []
+        pois = []
+        for user_pref in google_user_prefs:
+            users.append(int(user_pref['UserId']) - 1)
+            pois.append(int(user_pref['PoiId']) - 1)
+            ratings.append(int(float(user_pref['UserPreference'])))
+
+        self.max_google_user_id = max(users)
+        for user_pref in real_user_prefs:
+            users.append(self.max_google_user_id + int(user_pref['UserId']))
+            pois.append(int(user_pref['PoiId']) - 1)
+            ratings.append(int(float(user_pref['UserPreference'])))
+
+        rating_matrix = sparse.csr_matrix((ratings, (users, pois)))
+
+        user_attributes_loader = UserAttributesLoader()
+        user_attributes = user_attributes_loader.get_real_user_attributes(self.max_google_user_id)
+        return user_attributes, rating_matrix
+
     def init_predictor(self):
         num_users, num_items = self.ratingdata.shape
         num_attributes = self.user_attribute_codes_len
-        self.userfactors = np.random.random_sample((num_users, self.factors)).astype(
-            'float32')  # Return random floats in the half-open interval [0.0, 1.0).
-        self.itemfactors = np.random.random_sample((num_items, self.factors)).astype('float32')
-        self.userattributefactors = np.random.random_sample((num_attributes, self.factors)).astype('float32')
+        self.initial_training_data = TrainingData(num_users, num_items, self.factors, num_attributes)
 
-        self.ibias = np.zeros(num_items)
-        self.ubias = np.zeros(num_users)
-
-        # row, col = local_train_data.nonzero()
         cx = self.ratingdata.tocoo()
-        # cx = sparse.coo_matrix(local_train_data)
-        for iter in range(self.iterations):
+        self.train_predictor(sparse_matrix_coo=cx, training_data=self.initial_training_data)
 
-            for u, i, value in zip(cx.row, cx.col, cx.data):
+    def additional_preference_training(self, new_user_likes):
 
-                uattributes = np.zeros(self.factors)
-                attributes = []
-                if u in self.Userattributes.keys():
-                    attributes = self.Userattributes[u]
-
-                for aid in attributes:
-                    uattributes += self.userattributefactors[aid, :]
-
-                predict = self.ubias[u] + self.ibias[i] + np.dot((self.userfactors[u, :] + uattributes[:]),
-                                                                 self.itemfactors[i, :])
-
-                err = (value - predict)
-
-                self.ubias[u] += self.lr * (err - self.reg * self.ubias[u])
-                self.ibias[i] += self.lr * (err - self.reg * self.ibias[i])
-
-                uf = self.userfactors[u, :]
-                itf = self.itemfactors[i, :]
-
-                d = (err * self.itemfactors[i, :] - self.reg * uf)
-                self.userfactors[u, :] += self.lr * d
-
-                d = (err * (self.userfactors[u, :] + uattributes[:]) - self.reg * itf)
-                self.itemfactors[i, :] += self.lr * d
-
-                for aid in attributes:
-                    d = (err * itf - self.reg * self.userattributefactors[aid, :])
-                    self.userattributefactors[aid, :] += self.lr * d
-
-    def additional_preference_training(self, user_id):
-
-        new_user_likes = self.aws_manager.load_all_real_user_likes(user_id)
         if self.old_user_likes == new_user_likes:
-            return
-
+            print("Preferences did not change. Skipping training of predictor")
+            return self.old_training_data
         self.old_user_likes = new_user_likes
+
+        new_training_data = copy.deepcopy(self.initial_training_data)
+        cx = self.get_updated_rating_matrix(new_user_likes)
+        self.train_predictor(sparse_matrix_coo=cx.tocoo(), training_data=new_training_data, multiplier=2)
+        self.old_training_data = new_training_data
+        return new_training_data
+
+    def get_updated_rating_matrix(self, new_user_likes):
+        cx = self.ratingdata.tolil(copy=True)
+        for user_pref in new_user_likes:
+            u = int(user_pref['UserId']) + self.max_google_user_id
+            i = int(user_pref['PoiId']) - 1
+            value = int(user_pref['UserPreference'])
+
+            cx[u, i] = value
+        return cx
+
+    def train_predictor(self, sparse_matrix_coo, training_data, multiplier=1):
         for iter in range(self.iterations):
 
-            for user_pref in new_user_likes:
-                u = int(user_pref['UserId'])
-                i = int(user_pref['PoiId'])
-                value = int(user_pref['UserPreference'])
-
-                # for u, i, value in zip(new_preferences[0], new_preferences[1], new_preferences[2]):
+            for u, i, value in zip(sparse_matrix_coo.row, sparse_matrix_coo.col, sparse_matrix_coo.data):
 
                 uattributes = np.zeros(self.factors)
                 attributes = []
@@ -190,40 +184,49 @@ class UserContextBasedRecommender:
                     attributes = self.Userattributes[u]
 
                 for aid in attributes:
-                    uattributes += self.userattributefactors[aid, :]
+                    uattributes += training_data.userattributefactors[aid, :]
 
-                predict = self.ubias[u] + self.ibias[i] + np.dot((self.userfactors[u, :] + uattributes[:]),
-                                                                 self.itemfactors[i, :])
+                predict = training_data.ubias[u] + training_data.ibias[i] + np.dot(
+                    (training_data.userfactors[u, :] + uattributes[:]),
+                    training_data.itemfactors[i, :])
 
                 err = (value - predict)
 
-                self.ubias[u] += 5 * self.lr * (err - self.reg * self.ubias[u])
-                self.ibias[i] += 5 * self.lr * (err - self.reg * self.ibias[i])
+                training_data.ubias[u] += multiplier * self.lr * (err - self.reg * training_data.ubias[u])
+                training_data.ibias[i] += multiplier * self.lr * (err - self.reg * training_data.ibias[i])
 
-                uf = self.userfactors[u, :]
-                itf = self.itemfactors[i, :]
+                uf = training_data.userfactors[u, :]
+                itf = training_data.itemfactors[i, :]
 
-                d = (err * self.itemfactors[i, :] - self.reg * uf)
-                self.userfactors[u, :] += 5 * self.lr * d
+                d = (err * training_data.itemfactors[i, :] - self.reg * uf)
+                training_data.userfactors[u, :] += multiplier * self.lr * d
 
-                d = (err * (self.userfactors[u, :] + uattributes[:]) - self.reg * itf)
-                self.itemfactors[i, :] += 5 * self.lr * d
+                d = (err * (training_data.userfactors[u, :] + uattributes[:]) - self.reg * itf)
+                training_data.itemfactors[i, :] += multiplier * self.lr * d
 
                 for aid in attributes:
-                    d = (err * (itf) - self.reg * self.userattributefactors[aid, :])
-                    self.userattributefactors[aid, :] += 5 * self.lr * d
+                    d = (err * itf - self.reg * training_data.userattributefactors[aid, :])
+                    training_data.userattributefactors[aid, :] += multiplier * self.lr * d
 
     def context_mf(self, user_id, poi_start_id=0, poi_end_id=-1):
-        # predict user items
 
+        new_user_likes = self.aws_manager.load_all_real_user_likes(user_id)
+        new_training_data = self.additional_preference_training(new_user_likes)
+
+        user_id += self.max_google_user_id
+        liked_pois = []
+        for user_pref in new_user_likes:
+            i = int(user_pref['PoiId']) - 1
+            liked_pois.append(i)
         uattributes = np.zeros(self.factors)
-        attributes = self.Userattributes[user_id+ self.max_google_user_id]
+        attributes = self.Userattributes[user_id]
 
         for aid in attributes:
-            uattributes += self.userattributefactors[aid, :]
+            uattributes += new_training_data.userattributefactors[aid, :]
 
-        predict = np.reshape(self.ubias[user_id] + self.ibias +
-                             np.sum(np.multiply(self.userfactors[user_id, :] + uattributes[:], self.itemfactors[:, :]),
+        predict = np.reshape(new_training_data.ubias[user_id] + new_training_data.ibias +
+                             np.sum(np.multiply(new_training_data.userfactors[user_id, :] + uattributes[:],
+                                                new_training_data.itemfactors[:, :]),
                                     axis=1,
                                     dtype=np.float32), (-1,))
 
@@ -232,8 +235,13 @@ class UserContextBasedRecommender:
         if poi_end_id == -1:
             poi_end_id = len(idx)
         idx_in_range = idx[(idx >= poi_start_id) * (idx < poi_end_id)]
+        not_likes_idx = []
+        for index in idx_in_range:
+            if index in liked_pois or index in self.not_placed_pois:
+                continue
+            not_likes_idx.append(index)
 
-        recommended_poi_indices = idx_in_range[0:5]
+        recommended_poi_indices = not_likes_idx[0:5]
         recommended_poi_names = []
         for index in recommended_poi_indices:
             recommended_poi_names.append(self.restaurant_poi_id_to_name_map[index])

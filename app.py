@@ -6,7 +6,6 @@ from src.item_similarity_recommendation import ItemSimilarityRecommender
 from src.popular_restaurants_recommendation import get_popular_items
 from src.user_context_based_recommendation import UserContextBasedRecommender
 from src.user_plain_recommendation import PlainUserRecommender
-from src.usercontext_database_creator import userattributescodes
 
 app = Flask(__name__)
 
@@ -68,10 +67,8 @@ def user_context_recommendation_query():
 
         phase = int(request_data['phase'])
         if phase == 1:
-            usercontextBasedRecommender.additional_preference_training(user_id)
             recommended_pois = usercontextBasedRecommender.context_mf(user_id, poi_end_id=phase_separating_poi_id)
         elif phase == 2:
-            usercontextBasedRecommender.additional_preference_training(user_id)
             recommended_pois = usercontextBasedRecommender.context_mf(user_id, poi_start_id=phase_separating_poi_id)
         else:
             print("Phase not recognized. Aborting Recommendation")
@@ -123,7 +120,7 @@ phase_separating_poi_id = 25
 
 itemSimilarityRecommender = ItemSimilarityRecommender()
 plainUserRecommender = PlainUserRecommender()
-usercontextBasedRecommender = UserContextBasedRecommender(len(userattributescodes))
+usercontextBasedRecommender = UserContextBasedRecommender()
 # usercontextBasedRecommender.additional_preference_training(1)
 # recommended_pois = usercontextBasedRecommender.context_mf(1)
 # print(recommended_pois)
