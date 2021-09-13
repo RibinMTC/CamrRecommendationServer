@@ -111,7 +111,7 @@ class PlainUserRecommender:
             if poi_end_id == -1:
                 poi_end_id = len(idx)
             idx_in_range = idx[(idx >= poi_start_id) * (idx < poi_end_id)]
-            recommended_poi_indices = idx_in_range[0:5]
+            recommended_poi_indices = idx_in_range[0:10]
 
             for index in recommended_poi_indices:
                 recommended_poi_names.append(self.restaurant_poi_id_to_name_map[index])

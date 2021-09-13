@@ -236,12 +236,16 @@ class UserContextBasedRecommender:
             poi_end_id = len(idx)
         idx_in_range = idx[(idx >= poi_start_id) * (idx < poi_end_id)]
         not_likes_idx = []
+        liked_and_recommended_idx = liked_pois
         for index in idx_in_range:
-            if index in liked_pois or index in self.not_placed_pois:
+            # if index in liked_pois or index in self.not_placed_pois:
+            #     continue
+            # not_likes_idx.append(index)
+            if index in liked_and_recommended_idx or index in self.not_placed_pois:
                 continue
-            not_likes_idx.append(index)
+            liked_and_recommended_idx.append(index)
 
-        recommended_poi_indices = not_likes_idx[0:5]
+        recommended_poi_indices = liked_and_recommended_idx[0:10] #not_likes_idx[0:10]
         recommended_poi_names = []
         for index in recommended_poi_indices:
             recommended_poi_names.append(self.restaurant_poi_id_to_name_map[index])

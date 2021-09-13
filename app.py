@@ -116,11 +116,27 @@ def get_similar_items_test(poi_name, poi_start=0, poi_end=-1):
     print(test)
 
 
+def test_user_context_recommendation(user_id, phase1=False):
+    if phase1:
+        recommended_pois_1 = usercontextBasedRecommender.context_mf(user_id, poi_end_id=phase_separating_poi_id)
+        recommended_pois_2 = usercontextBasedRecommender.context_mf(user_id, poi_end_id=phase_separating_poi_id)
+    else:
+        recommended_pois_1 = usercontextBasedRecommender.context_mf(user_id, poi_start_id=phase_separating_poi_id)
+        recommended_pois_2 = usercontextBasedRecommender.context_mf(user_id, poi_start_id=phase_separating_poi_id)
+
+    assert(recommended_pois_1 == recommended_pois_2)
+    print(recommended_pois_1)
+
+
 phase_separating_poi_id = 25
 
 itemSimilarityRecommender = ItemSimilarityRecommender()
 plainUserRecommender = PlainUserRecommender()
 usercontextBasedRecommender = UserContextBasedRecommender()
+
+# test_user_context_recommendation(3)
+# test_user_context_recommendation(4)
+# test_user_context_recommendation(5)
 # usercontextBasedRecommender.additional_preference_training(1)
 # recommended_pois = usercontextBasedRecommender.context_mf(1)
 # print(recommended_pois)
