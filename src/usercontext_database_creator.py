@@ -121,6 +121,7 @@ userattributescodes['neuroticism3'] = 30
 userattributescodes['neuroticism4'] = 31
 userattributescodes['neuroticism5'] = 32
 
-dir = pathlib.Path(__file__).parent.parent.absolute() / 'poiData'
+if __name__ == '__main__':
+    dir = pathlib.Path(__file__).parent.parent.absolute() / 'poiData'
 
-CreatUsersProfiles()
+    CreatUsersProfiles()

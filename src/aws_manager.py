@@ -1,7 +1,8 @@
 import json
 import pathlib
-from scipy import sparse
+
 import boto3
+from boto3.dynamodb.conditions import Key
 
 
 class AwsManager:
@@ -26,32 +27,42 @@ class AwsManager:
 
         return response['Items']
 
+    def query_table(self, table_name, attribute_name, attribute_value):
+        table = self.dynamodb.Table(table_name)
+
+        response = table.query(
+            KeyConditionExpression=Key(attribute_name).eq(attribute_value)
+        )
+
+        return response['Items']
+
     def load_all_users(self):
         return self.scan_table('camr-users')
 
     def load_all_pois(self):
         return self.scan_table('camr-poi-storage')
 
-    def load_all_user_prefs(self):
+    def load_all_google_user_prefs(self):
         return self.scan_table('camr-user-item-preferences')
+
+    def load_all_real_user_prefs(self):
+        return self.scan_table('camr-real-user-item-preferences')
+
+    def load_all_real_user_likes(self, user_id):
+        return self.query_table('camr-user-item-likes-temp', 'UserId', user_id)
 
 
 if __name__ == '__main__':
     aws = AwsManager()
 
-    users = aws.load_all_users()
+    # users = aws.load_all_users()
+    #
+    # pois = aws.load_all_pois()
+    #
+    # user_prefs = aws.load_all_google_user_prefs()
 
-    pois = aws.load_all_pois()
-
-    user_prefs = aws.load_all_user_prefs()
-
-    vals, cols, rows = zip(*user_prefs.values())
-
-    #rating_matrix = sparse.csr_matrix((user_prefs['UserPreference'].values.astype(float),(user_prefs['UserId'].values,user_prefs['PoiId'].values)))
-    #rating_matrix =sparse.csr_matrix((vals['UserPreference'].astype(float), (rows['UserId'].astype(int), cols['PoiId'].astype(int))))
-
-    print("It is done")
-
+    #test = aws.load_all_real_user_likes(1)
+    #print(test)
     # Uncomment code below to iterate through all pois and its attributes
 
     # for poi in pois:
