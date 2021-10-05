@@ -101,10 +101,10 @@ class UserContextBasedRecommender:
 
     def __init__(self):
         self.aws_manager = AwsManager()
-        self.factors = 50
+        self.factors = 20
         self.lr = 0.001
         self.reg = 0.1
-        self.iterations = 50
+        self.iterations = 100
         self.Userattributes, self.ratingdata = self.load_data()
         pois_db = self.aws_manager.load_all_pois()
         self.restaurant_poi_id_to_name_map = {}
